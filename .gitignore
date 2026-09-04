@@ -1,8 +1,10 @@
-# Environment variables / secrets
+
+__pycache__/
+*.py[cod]
+
 .env
 .env.*
 
-# Virtual environments
 venv/
 env/
 .venv/
