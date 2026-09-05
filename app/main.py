@@ -7,6 +7,7 @@ from app import models
 from app.schemas import URLCreate
 import secrets
 import string
+from app.redis_client import redis_client
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
 
@@ -29,12 +30,20 @@ def shorten_url(url_data: URLCreate, db: Session = Depends(get_db)):
 
 @app.get("/{short_code}")
 def redirect_url(short_code: str, db: Session = Depends(get_db)):
+
+    cached_url = redis_client.get(short_code)
+    if cached_url:
+        return RedirectResponse(url=cached_url)
+
+    
     url = db.query(models.URL).filter(
         models.URL.short_code == short_code
     ).first()
 
     if not url:
         raise HTTPException(status_code=404, detail="Short URL not found")
+
+    redis_client.setex(short_code,3600, url.original_url)
 
     return RedirectResponse(url=url.original_url)
 
