@@ -1,4 +1,5 @@
 from fastapi import FastAPI ,Depends ,HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 from fastapi.responses import RedirectResponse
@@ -12,6 +13,7 @@ import string
 from app.redis_client import redis_client
 from app.rate_limiter import rate_limit
 from fastapi import Request
+from datetime import date , timedelta
 
 async def click_sync_worker():
     while True:
@@ -21,7 +23,6 @@ async def click_sync_worker():
 
         try:
             keys = redis_client.keys("clicks:*")
-            print("SYNC WORKER:", keys)
 
             for key in keys:
                 short_code = key.split(":", 1)[1]
@@ -29,7 +30,6 @@ async def click_sync_worker():
 
         finally:
             db.close()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,11 +39,28 @@ async def lifespan(app: FastAPI):
 
     task.cancel()
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 Base.metadata.create_all(bind=engine)
 
 @app.post("/shorten")
 def shorten_url(request:Request,url_data: URLCreate, db: Session = Depends(get_db)):
     rate_limit(request)
+
+    existing_url = db.query(models.URL).filter(
+    models.URL.original_url == str(url_data.url)
+    ).first()
+
+    if existing_url:
+      return {
+        "short_code": existing_url.short_code
+    }
 
     new_url = models.URL(
         original_url=str(url_data.url)
@@ -74,10 +91,26 @@ def get_analytics(short_code: str, db: Session = Depends(get_db)):
             detail="Short URL not found"
         )
 
+    today = date.today().isoformat()
+    today_clicks = redis_client.get(
+    f"daily_clicks:{short_code}:{today}")
+
+    daily_clicks = {}
+
+    for i in range(7):
+      day = date.today() - timedelta(days=i)
+      key = f"daily_clicks:{short_code}:{day.isoformat()}"
+
+      clicks = redis_client.get(key)
+
+      daily_clicks[day.isoformat()] = int(clicks or 0)
+
     return {
         "short_code": url.short_code,
         "original_url": url.original_url,
         "clicks": url.clicks,
+        "today_clicks": int(today_clicks or 0),
+        "daily_clicks": daily_clicks,
         "created_at": url.created_at
     }   
 
@@ -99,7 +132,12 @@ def redirect_url(short_code: str, db: Session = Depends(get_db)):
         models.URL.short_code == short_code).first()
 
       if url:
+        today = date.today().isoformat()
         redis_client.incr(f"clicks:{short_code}")
+        daily_key=(f"daily_clicks:{short_code}:{today}")
+
+        redis_client.incr(daily_key)
+        redis_client.expire(daily_key, 60 * 60 * 24 * 30)
 
       return RedirectResponse(url=cached_url)
 
@@ -110,7 +148,12 @@ def redirect_url(short_code: str, db: Session = Depends(get_db)):
     if not url:
         raise HTTPException(status_code=404, detail="Short URL not found")
 
+    today = date.today().isoformat()
     redis_client.incr(f"clicks:{short_code}")
+    daily_key=(f"daily_clicks:{short_code}:{today}")
+
+    redis_client.incr(daily_key)
+    redis_client.expire(daily_key, 60 * 60 * 24 * 30)
 
     redis_client.setex(short_code,3600, url.original_url)
 
@@ -135,7 +178,6 @@ def sync_clicks(short_code: str, db: Session):
 
     clicks = redis_client.eval(script, 1, redis_key)
 
-    print("SYNCING:", short_code, clicks)
 
     if clicks == 0:
         return
