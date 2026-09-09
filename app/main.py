@@ -14,7 +14,10 @@ from app.redis_client import redis_client
 from app.rate_limiter import rate_limit
 from fastapi import Request
 from datetime import date , timedelta
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 async def click_sync_worker():
     while True:
         await asyncio.sleep(30)
@@ -42,7 +45,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:5173")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
