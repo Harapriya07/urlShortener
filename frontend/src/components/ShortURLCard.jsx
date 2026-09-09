@@ -3,7 +3,7 @@ import { useState } from "react";
 function ShortURLCard({ shortCode }) {
     const [copied, setCopied] = useState(false);
 
-    const shortURL = `http://127.0.0.1:8000/${shortCode}`;
+    const shortURL = `${import.meta.env.VITE_API_URL}/${shortCode}`;
 
     async function copyURL() {
         await navigator.clipboard.writeText(shortURL);
