@@ -4,4 +4,6 @@ sqlalchemy
 psycopg
 redis
 python-dotenv
-pydantic
+alembic
+pytest
+httpx

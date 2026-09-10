@@ -13,8 +13,11 @@ from fastapi import Request
 from datetime import date , timedelta
 from dotenv import load_dotenv
 import os
+import logging
 
 load_dotenv()
+logger = logging.getLogger(__name__)
+
 async def click_sync_worker():
     while True:
         await asyncio.sleep(30)
@@ -46,7 +49,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-Base.metadata.create_all(bind=engine)
+
 
 @app.post("/shorten")
 def shorten_url(request:Request,url_data: URLCreate, db: Session = Depends(get_db)):
@@ -184,12 +187,12 @@ def sync_clicks(short_code: str, db: Session):
         url.clicks += clicks
         db.commit()
 
-        print("SYNC COMPLETE:", short_code, clicks)
+        logger.info("SYNC COMPLETE: %s %s", short_code, clicks)
 
     except Exception as e:
         db.rollback()
         redis_client.incrby(redis_key, clicks)
-        print("SYNC FAILED:", short_code, e)
+        logger.error("SYNC FAILED: %s %s", short_code, e)
 
     
 BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
