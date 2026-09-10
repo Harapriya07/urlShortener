@@ -179,22 +179,27 @@ def sync_clicks(short_code: str, db: Session):
 
     clicks = redis_client.eval(script, 1, redis_key)
 
-
     if clicks == 0:
         return
 
-    url = db.query(models.URL).filter(
-        models.URL.short_code == short_code
-    ).first()
+    try:
+        url = db.query(models.URL).filter(
+            models.URL.short_code == short_code
+        ).first()
 
-    if not url:
+        if not url:
+            redis_client.incrby(redis_key, clicks)
+            return
+
+        url.clicks += clicks
+        db.commit()
+
+        print("SYNC COMPLETE:", short_code, clicks)
+
+    except Exception as e:
+        db.rollback()
         redis_client.incrby(redis_key, clicks)
-        return
-
-    url.clicks += clicks
-    db.commit()
-
-    print("SYNC COMPLETE:", short_code, clicks)
+        print("SYNC FAILED:", short_code, e)
 
     
 BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
