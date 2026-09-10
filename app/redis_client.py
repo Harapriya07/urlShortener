@@ -14,4 +14,3 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
-print(redis_client.ping())

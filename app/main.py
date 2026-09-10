@@ -3,13 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 from fastapi.responses import RedirectResponse
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.database import engine, Base ,get_db
 from app import models
 from app.schemas import URLCreate
-import secrets
-import string
 from app.redis_client import redis_client
 from app.rate_limiter import rate_limit
 from fastapi import Request
@@ -116,13 +113,6 @@ def get_analytics(short_code: str, db: Session = Depends(get_db)):
         "created_at": url.created_at
     }   
 
-@app.post("/sync/{short_code}")
-def sync(short_code: str, db: Session = Depends(get_db)):
-    sync_clicks(short_code, db)
-
-    return {
-        "message": "Clicks synced"
-    }
 
 @app.get("/{short_code}")
 def redirect_url(short_code: str, db: Session = Depends(get_db)):
@@ -216,6 +206,3 @@ def encode_base62(number):
         number = number // 62
 
     return result
-
-def generate_short_code(number):
-    return encode_base62(number)
