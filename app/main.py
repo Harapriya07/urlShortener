@@ -25,12 +25,11 @@ async def click_sync_worker():
         db = next(get_db())
 
         try:
-            keys = redis_client.keys("clicks:*")
+            keys = list( redis_client.scan_iter(match="clicks:*") )
 
             for key in keys:
                 short_code = key.split(":", 1)[1]
-                sync_clicks(short_code, db)
-
+                sync_clicks(short_code, db)      
         finally:
             db.close()
 
@@ -164,7 +163,6 @@ def redirect_url(short_code: str, db: Session = Depends(get_db)):
 
 
 def sync_clicks(short_code: str, db: Session):
-
     redis_key = f"clicks:{short_code}"
 
     script = """
@@ -196,6 +194,7 @@ def sync_clicks(short_code: str, db: Session):
     url.clicks += clicks
     db.commit()
 
+    print("SYNC COMPLETE:", short_code, clicks)
 
     
 BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
