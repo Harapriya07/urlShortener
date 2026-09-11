@@ -7,6 +7,7 @@ function Home() {
         <Navbar />
         <div className="home">
             <div className="hero">
+                <span className="hero-badge">FAST • SIMPLE • SHAREABLE</span>
                 <h1>Shorten Your URLs</h1>
 
                 <p>

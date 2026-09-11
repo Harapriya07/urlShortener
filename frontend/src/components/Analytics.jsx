@@ -30,7 +30,12 @@ function Analytics({ shortCode }) {
 
     return (
     <div className="analytics" id="analytics">
-        <h2>Analytics</h2>
+        <div className="analytics-header">
+            <div>
+                <h2>Analytics</h2>
+                <p>Track how your shortened link is performing.</p>
+            </div>
+        </div>
 
         <div className="stats-grid">
             <StatsCard
@@ -41,6 +46,14 @@ function Analytics({ shortCode }) {
             <StatsCard
                 title="Today's Clicks"
                 value={analytics.today_clicks}
+            />
+
+            <StatsCard
+                title="Last 7 Days"
+                value={Object.values(analytics.daily_clicks).reduce(
+                    (total, clicks) => total + clicks,
+                    0
+                )}
             />
         </div>
 
